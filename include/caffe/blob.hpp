@@ -230,6 +230,11 @@ class Blob {
   void FromProto(const BlobProto& proto, bool reshape = true);
   void ToProto(BlobProto* proto, bool write_diff = false) const;
 
+  // add jay
+//  void FromMat(const char *fname);
+//  void ToMat(const char *fname, bool write_diff = false);
+  // end jay
+
   /// @brief Compute the sum of absolute values (L1 norm) of the data.
   Dtype asum_data() const;
   /// @brief Compute the sum of absolute values (L1 norm) of the diff.
@@ -262,6 +267,10 @@ class Blob {
    * shared_ptr calls its destructor when reset with the "=" operator.
    */
   void ShareDiff(const Blob& other);
+
+  // jay add
+//  void WriteToBinaryFile(std::string& fn);
+  // end jay
 
   bool ShapeEquals(const BlobProto& other);
 

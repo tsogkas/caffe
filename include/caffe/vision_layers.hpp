@@ -69,6 +69,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   int num_;
   int channels_;
   int pad_h_, pad_w_;
+  int hole_h_, hole_w_;
   int height_, width_;
   int group_;
   int num_output_;
@@ -80,20 +81,20 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   // wrap im2col/col2im so we don't have to remember the (long) argument lists
   inline void conv_im2col_cpu(const Dtype* data, Dtype* col_buff) {
     im2col_cpu(data, conv_in_channels_, conv_in_height_, conv_in_width_,
-        kernel_h_, kernel_w_, pad_h_, pad_w_, stride_h_, stride_w_, col_buff);
+        kernel_h_, kernel_w_, pad_h_, pad_w_, stride_h_, stride_w_, hole_h_, hole_w_, col_buff);
   }
   inline void conv_col2im_cpu(const Dtype* col_buff, Dtype* data) {
     col2im_cpu(col_buff, conv_in_channels_, conv_in_height_, conv_in_width_,
-        kernel_h_, kernel_w_, pad_h_, pad_w_, stride_h_, stride_w_, data);
+        kernel_h_, kernel_w_, pad_h_, pad_w_, stride_h_, stride_w_, hole_h_, hole_w_, data);
   }
 #ifndef CPU_ONLY
   inline void conv_im2col_gpu(const Dtype* data, Dtype* col_buff) {
     im2col_gpu(data, conv_in_channels_, conv_in_height_, conv_in_width_,
-        kernel_h_, kernel_w_, pad_h_, pad_w_, stride_h_, stride_w_, col_buff);
+        kernel_h_, kernel_w_, pad_h_, pad_w_, stride_h_, stride_w_, hole_h_, hole_w_, col_buff);
   }
   inline void conv_col2im_gpu(const Dtype* col_buff, Dtype* data) {
     col2im_gpu(col_buff, conv_in_channels_, conv_in_height_, conv_in_width_,
-        kernel_h_, kernel_w_, pad_h_, pad_w_, stride_h_, stride_w_, data);
+        kernel_h_, kernel_w_, pad_h_, pad_w_, stride_h_, stride_w_, hole_h_, hole_w_, data);
   }
 #endif
 
@@ -292,7 +293,106 @@ class Im2colLayer : public Layer<Dtype> {
   int channels_;
   int height_, width_;
   int pad_h_, pad_w_;
+  int hole_h_, hole_w_;
 };
+
+/**
+ * @brief Changes the spatial resolution by bi-linear interpolation.
+ *        The target size is specified in terms of pixels.
+ *        The start and end pixels of the input are mapped to the start
+ *        and end pixels of the output.
+ */
+template <typename Dtype>
+class InterpLayer : public Layer<Dtype> {
+ public:
+  explicit InterpLayer(const LayerParameter& param)
+      : Layer<Dtype>(param) {}
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+
+  virtual inline const char* type() const { return "Interpolation"; }
+  virtual inline int ExactNumBottomBlobs() const { return 1; }
+  virtual inline int ExactNumTopBlobs() const { return 1; }
+
+ protected:
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
+  int num_, channels_;
+  int height_in_, width_in_;
+  int height_out_, width_out_;
+  int pad_beg_, pad_end_;
+  int height_in_eff_, width_in_eff_;
+};
+
+
+/*
+template <typename Dtype>
+class MatReadLayer : public Layer<Dtype> {
+ public:
+  explicit MatReadLayer(const LayerParameter& param)
+      : Layer<Dtype>(param) {}
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  //Deeplab
+//  virtual inline LayerParameter_LayerType type() const {
+//    return LayerParameter_LayerType_MAT_READ;
+//  }
+  virtual inline const char* type() const { return "MatRead"; }
+  virtual inline int ExactNumBottomBlobs() const { return 0; }
+  virtual inline int ExactNumTopBlobs() const { return 1; }
+
+ protected:
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
+  bool reshape_;
+  int batch_size_;
+  int iter_;
+  string prefix_;
+  vector<string> fnames_;
+};
+
+
+template <typename Dtype>
+class MatWriteLayer : public Layer<Dtype> {
+ public:
+  explicit MatWriteLayer(const LayerParameter& param)
+      : Layer<Dtype>(param) {}
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+//  virtual inline LayerParameter_LayerType type() const {
+//    return LayerParameter_LayerType_MAT_WRITE;
+//  }
+  virtual inline const char* type() const { return "MatWrite"; }
+  virtual inline int ExactNumTopBlobs() const { return 0; }
+
+ protected:
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+
+  int iter_;
+  int period_;
+  string prefix_;
+  vector<string> fnames_;
+}; */
+
 
 // Forward declare PoolingLayer and SplitLayer for use in LRNLayer.
 template <typename Dtype> class PoolingLayer;

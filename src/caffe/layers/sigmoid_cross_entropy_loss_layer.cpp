@@ -26,6 +26,9 @@ void SigmoidCrossEntropyLossLayer<Dtype>::Reshape(
   CHECK_EQ(bottom[0]->count(), bottom[1]->count()) <<
       "SIGMOID_CROSS_ENTROPY_LOSS layer inputs must have the same count.";
   sigmoid_layer_->Reshape(sigmoid_bottom_vec_, sigmoid_top_vec_);
+//  if (top.size() >= 2) {
+//    top[1]->ReshapeLike(*bottom[0]);
+//  }
 }
 
 template <typename Dtype>
@@ -35,17 +38,20 @@ void SigmoidCrossEntropyLossLayer<Dtype>::Forward_cpu(
   sigmoid_bottom_vec_[0] = bottom[0];
   sigmoid_layer_->Forward(sigmoid_bottom_vec_, sigmoid_top_vec_);
   // Compute the loss (negative log likelihood)
-  const int count = bottom[0]->count();
-  const int num = bottom[0]->num();
+  const int count = bottom[0]->count();  // #of total elements
+  const int num = bottom[0]->num();      // #of batch instances
   // Stable version of loss computation from input data
   const Dtype* input_data = bottom[0]->cpu_data();
   const Dtype* target = bottom[1]->cpu_data();
   Dtype loss = 0;
   for (int i = 0; i < count; ++i) {
-    loss -= input_data[i] * (target[i] - (input_data[i] >= 0)) -
-        log(1 + exp(input_data[i] - 2 * input_data[i] * (input_data[i] >= 0)));
+    if (target[i] >= 0) { // ignore negative labels (STATSOGK)
+        loss -= input_data[i] * (target[i] - (input_data[i] >= 0)) -
+            log(1 + exp(input_data[i] - 2 * input_data[i] * (input_data[i] >= 0)));
+    }
   }
   top[0]->mutable_cpu_data()[0] = loss / num;
+//  caffe_copy(count,sigmoid_top_vec_[0]->cpu_data(), top[1]->mutable_cpu_data());
 }
 
 template <typename Dtype>
@@ -67,6 +73,9 @@ void SigmoidCrossEntropyLossLayer<Dtype>::Backward_cpu(
     // Scale down gradient
     const Dtype loss_weight = top[0]->cpu_diff()[0];
     caffe_scal(count, loss_weight / num, bottom_diff);
+//    for (int i=0; i<count; ++i) { // STATSOGK (to ignore negative labels)
+//        bottom_diff[i] = (target[i] >= 0) ? (bottom_diff[i]*(loss_weight/num)) : 0;
+//    }
   }
 }
 

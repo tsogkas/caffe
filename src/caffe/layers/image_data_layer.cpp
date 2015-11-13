@@ -26,20 +26,47 @@ void ImageDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const int new_height = this->layer_param_.image_data_param().new_height();
   const int new_width  = this->layer_param_.image_data_param().new_width();
   const bool is_color  = this->layer_param_.image_data_param().is_color();
+  const int label_type = this->layer_param_.image_data_param().label_type();
+  max_labels_ = this->layer_param_.image_data_param().max_labels();
   string root_folder = this->layer_param_.image_data_param().root_folder();
 
   CHECK((new_height == 0 && new_width == 0) ||
       (new_height > 0 && new_width > 0)) << "Current implementation requires "
       "new_height and new_width to be set at the same time.";
+  CHECK(label_type != ImageDataParameter_LabelType_NONE) <<
+        "Use IMAGE_SEG_DATA layer if you want pixel-level labels";
+  CHECK_GE(max_labels_, 0) << "max_labels cannot be negative";
+    if (label_type == ImageDataParameter_LabelType_NONE) {
+            max_labels_ = 0;
+    }
   // Read the file with filenames and labels
   const string& source = this->layer_param_.image_data_param().source();
   LOG(INFO) << "Opening file " << source;
   std::ifstream infile(source.c_str());
+  string linestr;
+  while (std::getline(infile ,linestr)) {
+      std::istringstream iss(linestr);
+      string filename;
+      iss >> filename;
+      std::vector<int> labels;
+      if (label_type == ImageDataParameter_LabelType_IMAGE) {
+          int label;
+          while (iss >> label) {
+              labels.push_back(label);
+          }
+      }
+      CHECK_LE(labels.size(), max_labels_) <<
+          "label blob cannot fit labels in image " << filename;
+      lines_.push_back(std::make_pair(filename, labels));
+  }
+
+  /* caffe version, replaced with deeplab version because it can
+   * read multiple labels
   string filename;
-  int label;
+  std::vector<int> labels;
   while (infile >> filename >> label) {
     lines_.push_back(std::make_pair(filename, label));
-  }
+  } */
 
   if (this->layer_param_.image_data_param().shuffle()) {
     // randomly shuffle data
@@ -75,7 +102,14 @@ void ImageDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       << top[0]->channels() << "," << top[0]->height() << ","
       << top[0]->width();
   // label
-  vector<int> label_shape(1, batch_size);
+  // vector<int> label_shape(1, batch_size); // caffe original
+  // We replace with the following deeplab version that supports
+  // multiple labels
+  vector<int> label_shape(4);
+  label_shape[0] = batch_size;
+  label_shape[1] = max_labels_;
+  label_shape[2] = 1;
+  label_shape[3] = 1;
   top[1]->Reshape(label_shape);
   this->prefetch_label_.Reshape(label_shape);
 }
@@ -134,8 +168,13 @@ void ImageDataLayer<Dtype>::InternalThreadEntry() {
     this->transformed_data_.set_cpu_data(prefetch_data + offset);
     this->data_transformer_->Transform(cv_img, &(this->transformed_data_));
     trans_time += timer.MicroSeconds();
-
-    prefetch_label[item_id] = lines_[lines_id_].second;
+    // GEt the labels (-1 is the void label)
+    for (int l=0; l < max_labels_; ++l) {
+        prefetch_label[max_labels_ * item_id + l] = 
+            (l < lines_[lines_id_].second.size()) ? 
+            lines_[lines_id_].second[l] : -1;
+    }
+    //prefetch_label[item_id] = lines_[lines_id_].second; //caffe original
     // go to the next iter
     lines_id_++;
     if (lines_id_ >= lines_size) {

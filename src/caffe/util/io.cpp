@@ -72,8 +72,10 @@ void WriteProtoToBinaryFile(const Message& proto, const char* filename) {
   CHECK(proto.SerializeToOstream(&output));
 }
 
+// modified version according to deeplab code
 cv::Mat ReadImageToCVMat(const string& filename,
-    const int height, const int width, const bool is_color) {
+    const int height, const int width, const bool is_color,
+                         int* img_height, int* img_width) {
   cv::Mat cv_img;
   int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
     CV_LOAD_IMAGE_GRAYSCALE);
@@ -87,8 +89,21 @@ cv::Mat ReadImageToCVMat(const string& filename,
   } else {
     cv_img = cv_img_origin;
   }
+  // deeplab ================================
+  if (img_height != NULL) {
+    *img_height = cv_img.rows;
+  }
+  if (img_width != NULL) {
+    *img_width = cv_img.cols;
+  }
+  // deeplab ================================
   return cv_img;
 }
+
+//cv::Mat ReadImageToCVMat(const string& filename,
+//    const int height, const int width, const bool is_color) {
+//  return ReadImageToCVMat(filename, height, width, is_color);
+//}
 
 cv::Mat ReadImageToCVMat(const string& filename,
     const int height, const int width) {
