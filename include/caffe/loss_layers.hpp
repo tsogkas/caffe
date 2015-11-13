@@ -10,6 +10,7 @@
 #include "caffe/layer.hpp"
 #include "caffe/neuron_layers.hpp"
 #include "caffe/proto/caffe.pb.h"
+#include "caffe/util/confusion_matrix.hpp"
 
 namespace caffe {
 

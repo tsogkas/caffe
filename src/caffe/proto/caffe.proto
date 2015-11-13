@@ -625,6 +625,8 @@ message ImageDataParameter {
   // data.
   optional bool mirror = 6 [default = false];
   optional string root_folder = 12 [default = ""];
+  optional bool has_label = 13 [default = true]; // STATSOGK
+  optional int32 max_labels = 14 [default = 1];  // STATSOGK
 }
 
 message InfogainLossParameter {
@@ -643,6 +645,17 @@ message InnerProductParameter {
   // May be negative to index from the end (e.g., -1 for the last axis).
   optional int32 axis = 5 [default = 1];
 }
+
+// Message that stores parameters used by InterpLayer
+message InterpParameter {
+  optional int32 height = 1 [default = 0]; // Height of output
+  optional int32 width = 2 [default = 0]; // Width of output
+  optional int32 zoom_factor = 3 [default = 1]; // zoom factor
+  optional int32 shrink_factor = 4 [default = 1]; // shrink factor
+  optional int32 pad_beg = 5 [default = 0]; // padding at begin of input
+  optional int32 pad_end = 6 [default = 0]; // padding at end of input
+}
+
 
 // Message that stores parameters used by LogLayer
 message LogParameter {
@@ -666,6 +679,23 @@ message LRNParameter {
   optional NormRegion norm_region = 4 [default = ACROSS_CHANNELS];
   optional float k = 5 [default = 1.];
 }
+
+// Message that stores parameters used by MatReadLayer
+message MatReadParameter {
+  required string prefix = 1;
+  optional string source = 2 [default = ""];
+  optional int32 strip = 3 [default = 0];
+  optional int32 batch_size = 4 [default = 1];
+}
+
+// Message that stores parameters used by MatWriteLayer
+message MatWriteParameter {
+  required string prefix = 1;
+  optional string source = 2 [default = ""];
+  optional int32 strip = 3 [default = 0];
+  optional int32 period = 4 [default = 1];
+}
+
 
 message MemoryDataParameter {
   optional uint32 batch_size = 1;
@@ -724,6 +754,11 @@ message PowerParameter {
 message PythonParameter {
   optional string module = 1;
   optional string layer = 2;
+  // This value is set to the attribute `param_str` of the `PythonLayer` object
+  // in Python before calling the `setup()` method. This could be a number,
+  // string, dictionary in Python dict format, JSON, etc. You may parse this
+  // string in `setup` method and use it in `forward` and `backward`.
+  optional string param_str = 3 [default = ''];
 }
 
 // Message that stores parameters used by ReductionLayer
